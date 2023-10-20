@@ -2,11 +2,9 @@ FROM node:16
 
 WORKDIR /kalato
 
-COPY ./package.json /kalato/package.json
+COPY . /kalato
 
 RUN npm install
-
-COPY ./src /kalato/src
 
 EXPOSE 3000
 
