@@ -6,7 +6,7 @@ from sqlalchemy.orm import declarative_base
 Base = declarative_base()
 class User(Base):
     __tablename__ = "users"
-    user_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, primary_key=True, index=True, unique=True)
     first_name = Column(String, index=True)
     last_name = Column(String, index=True)
     email_address = Column(String, unique=True, index=True)

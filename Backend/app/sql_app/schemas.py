@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
 class UserCreate(BaseModel):
+    user_id: int
     first_name: str
     last_name: str
     email_address: str
@@ -10,7 +11,9 @@ class UserCreate(BaseModel):
     user_type: str
     username: str
     
+    
 class User(BaseModel):
+    user_id: int
     first_name: str
     last_name: str
     email_address: str
@@ -19,7 +22,7 @@ class User(BaseModel):
     password: str
     user_type: str
     username: str
-    user_id: int
+    
 
 class UserUpdate(BaseModel):
     first_name: str

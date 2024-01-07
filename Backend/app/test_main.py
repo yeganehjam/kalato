@@ -1,3 +1,5 @@
+import random
+import time
 from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy import create_engine
@@ -12,7 +14,8 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
 
 # Define a fixture to create a unique username and email address
 def generate_unique_user():
-    unique_user_id = uuid.uuid4().int >> 64
+    random_component = random.randint(0, 9999)
+    unique_user_id = random_component
     unique_username = f"test_user_{unique_user_id}"
     unique_email = f"{unique_username}@example.com"
     return {"user_id": unique_user_id, "username": unique_username, "email_address": unique_email}
@@ -43,12 +46,19 @@ def drop_test_database():
 
 # Define a fixture for the test client
 client = TestClient(app)
+@pytest.fixture
+def override_dependency():
+    app.dependency_overrides[get_db] = create_test_database
+    yield
+    app.dependency_overrides.pop(get_db)
 
 def test_create_user():
     unique_user = generate_unique_user()
-
+    while client.get(f"/users/{unique_user['user_id']}").status_code == 200:
+        unique_user = generate_unique_user()
+    
     response = client.post("/users/", json={
-        "user_id": int(unique_user["user_id"]),
+        "user_id": unique_user["user_id"],
         "first_name": "John",
         "last_name": "Doe",
         "email_address": unique_user["email_address"],
@@ -58,8 +68,8 @@ def test_create_user():
         "user_type": "normal",
         "username": unique_user["username"]
     })
-    assert response.status_code == 200
-    assert response.json()["user_id"] == int(unique_user["user_id"])
+    assert response.status_code == 200, response.content
+    assert response.json()["user_id"] == unique_user["user_id"]
 
 def test_read_user():
     unique_user = generate_unique_user()
@@ -102,7 +112,20 @@ def test_update_user():
     assert create_response.status_code == 200
 
     # Test updating the user
-    update_response = client.put(f"/users/{unique_user['user_id']}", json={"first_name": "Updated John"})
+    update_response = client.put(
+    f"/users/{unique_user['user_id']}",
+    json={
+        "first_name": "Updated John",
+        "last_name": "Updated Doe",
+        "email_address": unique_user["email_address"],
+        "phone_number": "123456789",
+        "profile_picture": "url",
+        "password": "password123",
+        "user_type": "normal",
+        "username": unique_user["username"]
+    },
+)
+
     assert update_response.status_code == 200, update_response.content
     assert update_response.json()["first_name"] == "Updated John"
     # Handle case when user does not exist
