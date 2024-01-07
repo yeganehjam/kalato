@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sql_app import models
 from sql_app import schemas
@@ -46,11 +47,14 @@ def update_user(user_id: int, user: schemas.UserUpdate, db: Session = SessionLoc
         models.User: Updated user.
     """
     db_user = db.query(models.User).filter(models.User.user_id == user_id).first()
-    for key, value in user.dict().items():
-        setattr(db_user, key, value)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    if db_user:
+        for key, value in user.dict().items():
+            setattr(db_user, key, value)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    else:
+        raise HTTPException(status_code=404, detail="User not found")
 
 def delete_user(user_id: int, db: Session = SessionLocal()):
     """
@@ -64,9 +68,12 @@ def delete_user(user_id: int, db: Session = SessionLocal()):
         models.User: Deleted user.
     """
     db_user = db.query(models.User).filter(models.User.user_id == user_id).first()
-    db.delete(db_user)
-    db.commit()
-    return db_user
+    if db_user:
+        db.delete(db_user)
+        db.commit()
+        return db_user
+    else:
+        raise HTTPException(status_code=404, detail="User not found")
 
 def create_ad(ad: schemas.AdCreate, db: Session = SessionLocal()):
     """

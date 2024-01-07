@@ -19,6 +19,7 @@ class User(BaseModel):
     password: str
     user_type: str
     username: str
+    user_id: int
 
 class UserUpdate(BaseModel):
     first_name: str
