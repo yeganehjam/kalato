@@ -1,19 +1,37 @@
 from fastapi.testclient import TestClient
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from .main import app, get_db
 from sql_app.database import Base
 import uuid
+from sql_app.database import SessionLocal, engine
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
+
+# Define a fixture to create a unique username and email address
+def generate_unique_user():
+    unique_username = f"test_user_{uuid.uuid4().hex[:8]}"
+    unique_email = f"{unique_username}@example.com"
+    return {"username": unique_username, "email_address": unique_email}
+
+# Override the dependency to use the test database
+@pytest.fixture(autouse=True)
+def setup_and_teardown():
+    # Setup (before test)
+    create_test_database()
+    yield
+    # Teardown (after test)
+    drop_test_database()
 
 # Define a function to create the test database
 def create_test_database():
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = TestingSessionLocal()
     Base.metadata.create_all(bind=engine)
-    return TestingSessionLocal
+    yield db
+    db.close()
 
 # Override the dependency to use the test database
 app.dependency_overrides[get_db] = create_test_database
@@ -22,100 +40,87 @@ app.dependency_overrides[get_db] = create_test_database
 def drop_test_database():
     Base.metadata.drop_all(bind=engine)
 
-# Define a fixture to create a unique username
-def generate_unique_username():
-    return f"test_user_{uuid.uuid4().hex[:8]}"
-
 # Define a fixture for the test client
 client = TestClient(app)
 
 def test_create_user():
-    unique_username = generate_unique_username()
+    unique_user = generate_unique_user()
 
     response = client.post("/users/", json={
         "first_name": "John",
         "last_name": "Doe",
-        "email_address": "john@example.com",
+        "email_address": unique_user["email_address"],
         "phone_number": "123456789",
         "profile_picture": "url",
         "password": "password123",
         "user_type": "normal",
-        "username": unique_username
+        "username": unique_user["username"]
     })
     assert response.status_code == 200
-    assert response.json()["username"] == unique_username
+    assert response.json()["username"] == unique_user["username"]
 
 def test_read_user():
-    unique_username = generate_unique_username()
+    unique_user = generate_unique_user()
 
     # Create a test user
     create_response = client.post("/users/", json={
         "first_name": "John",
         "last_name": "Doe",
-        "email_address": "john@example.com",
+        "email_address": unique_user["email_address"],
         "phone_number": "123456789",
         "profile_picture": "url",
         "password": "password123",
         "user_type": "normal",
-        "username": unique_username
+        "username": unique_user["username"]
     })
     assert create_response.status_code == 200
-
-    # Get the user ID from the created user
-    user_id = create_response.json()["id"]
 
     # Test reading the user
-    read_response = client.get(f"/users/{user_id}")
-    assert read_response.status_code == 200
-    assert read_response.json()["username"] == unique_username
+    read_response = client.get(f"/users/{unique_user['username']}")
+    assert read_response.status_code == 200 , read_response.content
+    assert read_response.json()["username"] == unique_user["username"]
 
 def test_update_user():
-    unique_username = generate_unique_username()
+    unique_user = generate_unique_user()
 
     # Create a test user
     create_response = client.post("/users/", json={
         "first_name": "John",
         "last_name": "Doe",
-        "email_address": "john@example.com",
+        "email_address": unique_user["email_address"],
         "phone_number": "123456789",
         "profile_picture": "url",
         "password": "password123",
         "user_type": "normal",
-        "username": unique_username
+        "username": unique_user["username"]
     })
     assert create_response.status_code == 200
 
-    # Get the user ID from the created user
-    user_id = create_response.json()["id"]
-
     # Test updating the user
-    update_response = client.put(f"/users/{user_id}", json={"first_name": "Updated John"})
-    assert update_response.status_code == 200
+    update_response = client.put(f"/users/{unique_user['username']}", json={"first_name": "Updated John"})
+    assert update_response.status_code == 200, update_response.content
     assert update_response.json()["first_name"] == "Updated John"
 
 def test_delete_user():
-    unique_username = generate_unique_username()
+    unique_user = generate_unique_user()
 
     # Create a test user
     create_response = client.post("/users/", json={
         "first_name": "John",
         "last_name": "Doe",
-        "email_address": "john@example.com",
+        "email_address": unique_user["email_address"],
         "phone_number": "123456789",
         "profile_picture": "url",
         "password": "password123",
         "user_type": "normal",
-        "username": unique_username
+        "username": unique_user["username"]
     })
     assert create_response.status_code == 200
 
-    # Get the user ID from the created user
-    user_id = create_response.json()["id"]
-
     # Test deleting the user
-    delete_response = client.delete(f"/users/{user_id}")
-    assert delete_response.status_code == 200
-    assert delete_response.json()["username"] == unique_username 
+    delete_response = client.delete(f"/users/{unique_user['username']}")
+    assert delete_response.status_code == 200, delete_response.content
+    assert delete_response.json()["username"] == unique_user["username"]
 
     # Clean up the test database after the test
     drop_test_database()
