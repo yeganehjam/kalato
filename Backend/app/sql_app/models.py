@@ -1,7 +1,8 @@
 from pydantic import BaseModel
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
-from schemas import UserCreate, UserUpdate, AdCreate, AdUpdate
+from sql_app import schemas
+from sqlalchemy.orm import declarative_base
 Base = declarative_base()
 class User(Base):
     __tablename__ = "users"
